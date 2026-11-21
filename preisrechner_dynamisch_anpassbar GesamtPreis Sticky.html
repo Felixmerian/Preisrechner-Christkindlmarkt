@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preisrechner</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --card: #ffffff; --text: #1d1d1b; --muted: #75736c;
+    --line: #e4e2db; --accent: #2f6b4f; --accent-soft: #e6f0ea; --danger: #b3412f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161615; --card: #20201e; --text: #ecebe6; --muted: #9b998f;
+      --line: #34332f; --accent: #6fbf95; --accent-soft: #1f3329; --danger: #e07a68; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { width: 100%; max-width: none; margin: 0; padding: clamp(10px, 2vw, 24px) clamp(8px, 1.5vw, 20px) 40px; }
+  .preset { flex: 1 1 120px; }
+  @media (min-width: 1400px) { main { max-width: 1400px; margin: 0 auto; } }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .head, .row { display: grid; grid-template-columns: 1fr 110px 70px 36px; gap: 8px; align-items: center; }
+  .head { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 0 2px 8px; }
+  .row { padding: 6px 0; border-top: 1px solid var(--line); }
+  .row:first-of-type { border-top: none; }
+  input { width: 100%; font: inherit; color: var(--text); background: transparent;
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+  input.num { text-align: right; font-variant-numeric: tabular-nums; }
+  input.bad { border-color: var(--danger); }
+  .del { border: none; background: none; color: var(--muted); font-size: 1.2rem; cursor: pointer;
+    border-radius: 8px; height: 36px; }
+  .del:hover { color: var(--danger); background: var(--accent-soft); }
+  .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  button.btn { font: inherit; border-radius: 9px; padding: 9px 14px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--card); color: var(--text); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  @media (prefers-color-scheme: dark) { button.primary { color: #10251a; } }
+  .clear-wrap { display: flex; justify-content: center; margin-top: 16px; }
+  button.big-clear { font-size: 1.15rem; font-weight: 600; padding: 14px 28px; min-width: 60%;
+    border: 2px solid var(--danger); color: var(--danger); border-radius: 12px; }
+  button.big-clear:hover { background: var(--danger); color: #fff; }
+  .total { margin-top: 18px; background: var(--accent-soft); border-radius: 14px; padding: 18px;
+    display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px;
+    position: sticky; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 10;
+    border: 1px solid var(--line); box-shadow: 0 6px 24px rgba(0,0,0,.18); }
+  .total .label { color: var(--muted); }
+  .total .sum { font-size: 2rem; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--accent); }
+  .meta { margin-top: 8px; color: var(--muted); font-size: .9rem; display: flex; justify-content: space-between; }
+  .presets-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .presets-head h2 { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0; font-weight: 600; }
+  .link { background: none; border: none; color: var(--accent); font: inherit; font-size: .9rem; cursor: pointer; padding: 0; }
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; }
+  .preset { position: relative; font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--card);
+    color: var(--text); border-radius: 10px; padding: 8px 12px; display: flex; flex-direction: column; align-items: flex-start;
+    min-width: 92px; transition: transform .08s, border-color .15s; }
+  .preset:hover { border-color: var(--accent); }
+  .preset:active { transform: scale(.96); }
+  .preset .pn { font-size: .95rem; }
+  .preset .pp { font-size: .82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .preset .x { display: none; position: absolute; top: -7px; right: -7px; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--danger); color: #fff; font-size: .8rem; line-height: 20px; text-align: center; }
+  .editing .preset { border-style: dashed; }
+  .editing .preset .x { display: block; }
+  .newpreset { display: none; grid-template-columns: 1fr 100px auto; gap: 8px; margin-top: 12px; }
+  .editing .newpreset { display: grid; }
+  .editing .restore { display: inline; }
+  .restore { display: none; margin-top: 10px; }
+  .section { margin-bottom: 16px; }
+  @media (max-width: 480px) {
+    .head, .row { grid-template-columns: 1fr 88px 54px 32px; gap: 6px; }
+    input { padding: 8px 7px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Preisrechner</h1>
+  <p class="sub">Produkte eintragen – die Summe wird automatisch berechnet.</p>
+
+  <div class="card section" id="presetCard">
+    <div class="presets-head">
+      <h2>Schnellwahl</h2>
+      <button class="link" id="editToggle">Bearbeiten</button>
+    </div>
+    <div class="presets" id="presets"></div>
+    <form class="newpreset" id="newPreset">
+      <input id="npName" placeholder="Neues Produkt" aria-label="Name des neuen Produkts">
+      <input id="npPrice" class="num" inputmode="decimal" placeholder="0,00" aria-label="Preis des neuen Produkts">
+      <button class="btn primary" type="submit">Anlegen</button>
+    </form>
+    <button class="link restore" id="restore">Standard-Buttons wiederherstellen</button>
+  </div>
+
+  <div class="card">
+    <div class="head"><span>Produkt</span><span style="text-align:right">Preis (€)</span><span style="text-align:right">Menge</span><span></span></div>
+    <div id="rows"></div>
+    <div class="actions">
+      <button class="btn primary" id="add">+ Produkt hinzufügen</button>
+      <button class="btn" id="save">EC Karte</button>
+      <button class="btn" id="copy">Liste kopieren</button>
+    </div>
+    <div class="clear-wrap">
+      <button class="btn big-clear" id="clear">Alles löschen</button>
+    </div>
+  </div>
+
+  <div class="total">
+    <span class="label">Gesamtpreis</span>
+    <span class="sum" id="sum">0,00 €</span>
+  </div>
+  <div class="meta"><span id="count">0 Artikel</span><span id="status"></span></div>
+</main>
+
+<script>
+  const rowsEl = document.getElementById('rows');
+  const fmt = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' });
+  const KEY = 'preisrechner-v1';
+
+  // Akzeptiert "12,99", "12.99", "1.234,50", "1,234.50"
+  function parsePrice(str) {
+    let s = String(str).trim().replace(/[€\s]/g, '');
+    if (!s) return 0;
+    const lastComma = s.lastIndexOf(','), lastDot = s.lastIndexOf('.');
+    if (lastComma > lastDot) s = s.replace(/\./g, '').replace(',', '.');
+    else s = s.replace(/,/g, '');
+    const n = Number(s);
+    return Number.isFinite(n) ? n : NaN;
+  }
+
+  function addRow(name = '', price = '', qty = '1', focus = true) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+      <input class="name" placeholder="z. B. Milch" aria-label="Produkt">
+      <input class="num price" inputmode="decimal" placeholder="0,00" aria-label="Preis">
+      <input class="num qty" inputmode="numeric" aria-label="Menge">
+      <button class="del" title="Entfernen" aria-label="Entfernen">×</button>`;
+    row.querySelector('.name').value = name;
+    row.querySelector('.price').value = price;
+    row.querySelector('.qty').value = qty;
+    row.querySelector('.del').onclick = () => { row.remove(); if (!rowsEl.children.length) addRow('', '', '1', false); update(); };
+    row.querySelector('.price').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); addRow(); }
+    });
+    rowsEl.appendChild(row);
+    if (focus) row.querySelector('.name').focus();
+    update();
+  }
+
+  function collect() {
+    return [...rowsEl.querySelectorAll('.row')].map(r => ({
+      el: r,
+      name: r.querySelector('.name').value,
+      price: r.querySelector('.price').value,
+      qty: r.querySelector('.qty').value
+    }));
+  }
+
+  function update() {
+    let total = 0, items = 0, bad = false;
+    for (const it of collect()) {
+      const p = parsePrice(it.price);
+      const q = it.qty.trim() === '' ? 1 : parsePrice(it.qty);
+      const pIn = it.el.querySelector('.price'), qIn = it.el.querySelector('.qty');
+      pIn.classList.toggle('bad', Number.isNaN(p));
+      qIn.classList.toggle('bad', Number.isNaN(q) || q < 0);
+      if (Number.isNaN(p) || Number.isNaN(q) || q < 0) { bad = true; continue; }
+      if (it.price.trim() !== '') { total += p * q; items += q; }
+    }
+    document.getElementById('sum').textContent = fmt.format(Math.round(total * 100) / 100);
+    document.getElementById('count').textContent = `${items.toLocaleString('de-DE')} Artikel`;
+    document.getElementById('status').textContent = bad ? 'Ungültige Eingaben werden ignoriert' : '';
+    try { localStorage.setItem(KEY, JSON.stringify(collect().map(({name, price, qty}) => ({name, price, qty})))); } catch (e) {}
+  }
+
+  rowsEl.addEventListener('input', update);
+  document.getElementById('add').onclick = () => addRow();
+  document.getElementById('clear').onclick = () => { rowsEl.innerHTML = ''; addRow('', '', '1', false); };
+  document.getElementById('copy').onclick = async () => {
+    const lines = collect().filter(i => i.price.trim()).map(i => {
+      const p = parsePrice(i.price), q = i.qty.trim() === '' ? 1 : parsePrice(i.qty);
+      return `${q} × ${i.name || 'Produkt'}: ${fmt.format(p * q)}`;
+    });
+    lines.push(`Gesamt: ${document.getElementById('sum').textContent}`);
+    const st = document.getElementById('status');
+    try { await navigator.clipboard.writeText(lines.join('\n')); st.textContent = 'Kopiert ✓'; }
+    catch (e) { st.textContent = 'Kopieren nicht möglich'; }
+    setTimeout(() => update(), 1800);
+  };
+
+  // ---------- Als TXT speichern ----------
+  document.getElementById('save').onclick = () => {
+    const st = document.getElementById('status');
+    const lines = [];
+    for (const i of collect()) {
+      if (!i.price.trim()) continue;
+      const p = parsePrice(i.price), q = i.qty.trim() === '' ? 1 : parsePrice(i.qty);
+      if (Number.isNaN(p) || Number.isNaN(q) || q < 0) continue;
+      lines.push(`${q.toLocaleString('de-DE')} × ${i.name.trim() || 'Produkt'} à ${fmt.format(p)} = ${fmt.format(p * q)}`);
+    }
+    if (!lines.length) { st.textContent = 'Nichts zu speichern'; setTimeout(() => update(), 1800); return; }
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const text = [
+      'Abrechnung',
+      now.toLocaleString('de-DE'),
+      '----------------------------------------',
+      ...lines,
+      '----------------------------------------',
+      `Artikel: ${document.getElementById('count').textContent.replace(' Artikel', '')}`,
+      `Gesamt:  ${document.getElementById('sum').textContent}`,
+      ''
+    ].join('\r\n');
+
+    const blob = new Blob(['﻿' + text], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `abrechnung_${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    st.textContent = 'Gespeichert ✓';
+    setTimeout(() => update(), 1800);
+  };
+
+  // ---------- Schnellwahl-Buttons ----------
+  const PKEY = 'preisrechner-presets-v1';
+  const DEFAULT_PRESETS = [
+    { name: 'Gluehwein mit Pfand', price: '6,90' }, { name: 'Gluehwein ohne Pfand', price: '4,90' },
+    { name: 'Gluehwein mit Schuss + Pfand', price: '8,90' }, { name: 'Gluehwein mir Schuss ohne Pfand', price: '6,90' },
+    { name: 'Gluehgin', price: '8,70' }, { name: 'Hot Aperol', price: '8,70' },
+    { name: 'Helles', price: '4,90' }, { name: 'Radler', price: '4,70' },
+    { name: 'Alkoholfrei', price: '4,90' }, { name: 'Pils', price: '3,70' },
+    { name: 'AFG', price: '4,00' }, { name: 'Schorle', price: '4,20' },
+    { name: 'Wasser', price: '3,50' }, { name: 'Sekt 0,1', price: '6,90' },
+    { name: 'Clubmate', price: '4,00' }, { name: 'Merlot 0,2', price: '8,70' },
+    { name: '+ Pfand', price: '2,0' }, { name: '- Pfand', price: '-2,00' },
+  ];
+  let presets;
+  try { presets = JSON.parse(localStorage.getItem(PKEY)); } catch (e) {}
+  if (!Array.isArray(presets)) presets = DEFAULT_PRESETS.slice();
+
+  const presetCard = document.getElementById('presetCard');
+  const presetsEl = document.getElementById('presets');
+
+  function savePresets() { try { localStorage.setItem(PKEY, JSON.stringify(presets)); } catch (e) {} }
+
+  function renderPresets() {
+    presetsEl.innerHTML = '';
+    presets.forEach((p, i) => {
+      const b = document.createElement('button');
+      b.className = 'preset';
+      b.innerHTML = '<span class="pn"></span><span class="pp"></span><span class="x" aria-hidden="true">×</span>';
+      b.querySelector('.pn').textContent = p.name;
+      b.querySelector('.pp').textContent = fmt.format(parsePrice(p.price) || 0);
+      b.onclick = () => {
+        if (presetCard.classList.contains('editing')) { presets.splice(i, 1); savePresets(); renderPresets(); }
+        else addPreset(p);
+      };
+      presetsEl.appendChild(b);
+    });
+    if (!presets.length) presetsEl.innerHTML = '<span style="color:var(--muted)">Keine Buttons – unter „Bearbeiten“ neue anlegen.</span>';
+  }
+
+  function addPreset(p) {
+    const items = collect();
+    // Gleiches Produkt schon in der Liste? Dann Menge erhöhen
+    const same = items.find(i => i.name.trim() === p.name && parsePrice(i.price) === parsePrice(p.price));
+    if (same) {
+      const q = same.el.querySelector('.qty');
+      q.value = String((parsePrice(q.value) || 0) + 1);
+      update(); return;
+    }
+    // Leere Zeile wiederverwenden
+    const empty = items.find(i => !i.name.trim() && !i.price.trim());
+    if (empty) {
+      empty.el.querySelector('.name').value = p.name;
+      empty.el.querySelector('.price').value = p.price;
+      empty.el.querySelector('.qty').value = '1';
+      update(); return;
+    }
+    addRow(p.name, p.price, '1', false);
+  }
+
+  document.getElementById('editToggle').onclick = () => {
+    const on = presetCard.classList.toggle('editing');
+    document.getElementById('editToggle').textContent = on ? 'Fertig' : 'Bearbeiten';
+    if (on) document.getElementById('npName').focus();
+  };
+  document.getElementById('newPreset').addEventListener('submit', e => {
+    e.preventDefault();
+    const nameIn = document.getElementById('npName'), priceIn = document.getElementById('npPrice');
+    const name = nameIn.value.trim(), price = parsePrice(priceIn.value);
+    priceIn.classList.toggle('bad', !priceIn.value.trim() || Number.isNaN(price) || price < 0);
+    nameIn.classList.toggle('bad', !name);
+    if (!name || !priceIn.value.trim() || Number.isNaN(price) || price < 0) return;
+    presets.push({ name, price: price.toFixed(2).replace('.', ',') });
+    savePresets(); renderPresets();
+    nameIn.value = ''; priceIn.value = ''; nameIn.focus();
+  });
+  document.getElementById('restore').onclick = () => { presets = DEFAULT_PRESETS.slice(); savePresets(); renderPresets(); };
+  renderPresets();
+
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+  if (saved.length) saved.forEach(s => addRow(s.name, s.price, s.qty, false));
+  else addRow('', '', '1', false);
+</script>
+</body>
+</html>
